@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>XO Arena</title>
+
+<style>
+:root {
+  --bg-gradient: linear-gradient(135deg, #4facfe, #00f2fe);
+  --cell-bg: rgba(255,255,255,0.15);
+  --text-color: #ffffff;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: var(--bg-gradient);
+  color: var(--text-color);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  overflow: hidden;
+  transition: 0.6s;
+}
+
+.container {
+  text-align: center;
+  backdrop-filter: blur(10px);
+}
+
+h1 {
+  font-size: 40px;
+  margin-bottom: 10px;
+  animation: float 3s infinite ease-in-out;
+}
+
+@keyframes float {
+  0%,100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.menu button,
+.theme-btn {
+  padding: 10px 20px;
+  margin: 8px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+  background: rgba(255,255,255,0.2);
+  color: white;
+  transition: 0.3s;
+}
+
+.menu button:hover,
+.theme-btn:hover {
+  transform: scale(1.1);
+  background: rgba(255,255,255,0.4);
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, 100px);
+  gap: 10px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.cell {
+  width: 100px;
+  height: 100px;
+  font-size: 40px;
+  background: var(--cell-bg);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  border-radius: 15px;
+  transition: 0.3s;
+}
+
+.cell:hover {
+  transform: scale(1.1);
+}
+
+.hidden {
+  display: none;
+}
+
+#status {
+  margin-top: 15px;
+  font-size: 20px;
+}
+
+/* Jungle Theme */
+.jungle {
+  --bg-gradient: linear-gradient(135deg, #11998e, #38ef7d);
+  --cell-bg: rgba(0,0,0,0.2);
+}
+
+.animal {
+  position: absolute;
+  font-size: 40px;
+  animation: float 4s infinite ease-in-out;
+}
+
+.animal.one { top: 10%; left: 5%; }
+.animal.two { bottom: 10%; right: 5%; }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <h1>XO Arena</h1>
+
+  <div class="menu" id="menu">
+    <button onclick="startLocal()">Play (Same Device)</button>
+    <button onclick="showAI()">Play With AI</button>
+    <button class="theme-btn" onclick="toggleTheme()">Change Theme</button>
+  </div>
+
+  <div id="aiLevels" class="hidden">
+    <button onclick="startAI('easy')">Easy</button>
+    <button onclick="startAI('medium')">Medium</button>
+    <button onclick="startAI('hard')">Hard</button>
+  </div>
+
+  <div id="game" class="hidden">
+    <div class="board" id="board"></div>
+    <div id="status"></div>
+    <button onclick="resetGame()">Restart</button>
+    <button onclick="backMenu()">Menu</button>
+  </div>
+</div>
+
+<div class="animal one hidden" id="animal1">🦜</div>
+<div class="animal two hidden" id="animal2">🐒</div>
+
+<script>
+const boardEl = document.getElementById("board");
+const statusEl = document.getElementById("status");
+
+let board = Array(9).fill("");
+let currentPlayer = "X";
+let gameActive = true;
+let aiMode = false;
+let aiLevel = "easy";
+let jungleMode = false;
+
+function createBoard() {
+  boardEl.innerHTML = "";
+  board.forEach((cell, index) => {
+    const div = document.createElement("div");
+    div.classList.add("cell");
+    div.innerText = cell;
+    div.onclick = () => handleClick(index);
+    boardEl.appendChild(div);
+  });
+}
+
+function handleClick(index) {
+  if (!gameActive || board[index] !== "") return;
+  board[index] = currentPlayer;
+  createBoard();
+  checkWinner();
+
+  if (aiMode && gameActive && currentPlayer === "O") {
+    setTimeout(aiMove, 300);
+  }
+}
+
+function checkWinner() {
+  const winPatterns = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+
+  for (let pattern of winPatterns) {
+    const [a,b,c] = pattern;
+    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+      statusEl.innerText = board[a] + " Wins!";
+      gameActive = false;
+      return;
+    }
+  }
+
+  if (!board.includes("")) {
+    statusEl.innerText = "Draw!";
+    gameActive = false;
+    return;
+  }
+
+  currentPlayer = currentPlayer === "X" ? "O" : "X";
+  statusEl.innerText = "Turn: " + currentPlayer;
+}
+
+function aiMove() {
+  let move;
+
+  if (aiLevel === "easy") {
+    let empty = board.map((v,i)=>v===""?i:null).filter(v=>v!==null);
+    move = empty[Math.floor(Math.random()*empty.length)];
+  }
+
+  else if (aiLevel === "medium") {
+    move = Math.random() < 0.5 ? randomMove() : bestMove();
+  }
+
+  else {
+    move = bestMove();
+  }
+
+  board[move] = "O";
+  createBoard();
+  checkWinner();
+}
+
+function randomMove() {
+  let empty = board.map((v,i)=>v===""?i:null).filter(v=>v!==null);
+  return empty[Math.floor(Math.random()*empty.length)];
+}
+
+function bestMove() {
+  let bestScore = -Infinity;
+  let move;
+  for (let i = 0; i < 9; i++) {
+    if (board[i] === "") {
+      board[i] = "O";
+      let score = minimax(board, 0, false);
+      board[i] = "";
+      if (score > bestScore) {
+        bestScore = score;
+        move = i;
+      }
+    }
+  }
+  return move;
+}
+
+function minimax(board, depth, isMaximizing) {
+  let result = evaluate();
+  if (result !== null) return result;
+
+  if (isMaximizing) {
+    let bestScore = -Infinity;
+    for (let i=0;i<9;i++) {
+      if (board[i]==="") {
+        board[i]="O";
+        let score=minimax(board,depth+1,false);
+        board[i]="";
+        bestScore=Math.max(score,bestScore);
+      }
+    }
+    return bestScore;
+  } else {
+    let bestScore = Infinity;
+    for (let i=0;i<9;i++) {
+      if (board[i]==="") {
+        board[i]="X";
+        let score=minimax(board,depth+1,true);
+        board[i]="";
+        bestScore=Math.min(score,bestScore);
+      }
+    }
+    return bestScore;
+  }
+}
+
+function evaluate() {
+  const wins = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+
+  for (let pattern of wins) {
+    const [a,b,c] = pattern;
+    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+      return board[a] === "O" ? 1 : -1;
+    }
+  }
+
+  if (!board.includes("")) return 0;
+  return null;
+}
+
+function startLocal() {
+  aiMode = false;
+  startGame();
+}
+
+function startAI(level) {
+  aiMode = true;
+  aiLevel = level;
+  startGame();
+}
+
+function showAI() {
+  document.getElementById("aiLevels").classList.remove("hidden");
+}
+
+function startGame() {
+  document.getElementById("menu").classList.add("hidden");
+  document.getElementById("aiLevels").classList.add("hidden");
+  document.getElementById("game").classList.remove("hidden");
+  resetGame();
+}
+
+function resetGame() {
+  board = Array(9).fill("");
+  currentPlayer = "X";
+  gameActive = true;
+  statusEl.innerText = "Turn: X";
+  createBoard();
+}
+
+function backMenu() {
+  document.getElementById("menu").classList.remove("hidden");
+  document.getElementById("game").classList.add("hidden");
+}
+
+function toggleTheme() {
+  jungleMode = !jungleMode;
+  document.body.classList.toggle("jungle");
+  document.getElementById("animal1").classList.toggle("hidden");
+  document.getElementById("animal2").classList.toggle("hidden");
+}
+
+createBoard();
+</script>
+
+</body>
+</html>
